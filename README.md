@@ -4,6 +4,8 @@
 
 No source code leaves your machine. The MCP server runs regex + AST + filename scans locally, and the LLM orchestrates the audit through secure, sandboxed tools.
 
+![SecureOps AI Preview](images/preview.png)
+
 ---
 
 ## Quick Start
