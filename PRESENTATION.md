@@ -94,7 +94,7 @@ main.rs      → 1 finding (path traversal)
 - VS Code extension
 
 **Links:**
-- GitHub: [repo-url]
+- GitHub: [https://github.com/vlex127/secureops-mcp]
 - Devpost: [devpost-url]
 - Demo: [video-url]
 
@@ -120,7 +120,7 @@ main.rs      → 1 finding (path traversal)
 
 ```
 [0:00-0:30] — Introduction
-"Hi, we're [Team Name] and this is SecureOps AI. We're solving the problem of secure
+"Hi, I'm Vincent and this is SecureOps AI. We're solving the problem of secure
 code auditing with LLMs. The core insight: instead of sending your code to the LLM,
 bring the LLM to your code via MCP."
 

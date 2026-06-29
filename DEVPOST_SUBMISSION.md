@@ -173,7 +173,7 @@ The server starts and exposes 5 MCP tools. Connect any MCP-compatible client (Cl
 
 ## Links
 
-- **GitHub Repository**: [https://github.com/your-team/secureops-mcp](https://github.com/your-team/secureops-mcp)
+- **GitHub Repository**: [https://github.com/vlex127/secureops-mcp](https://github.com/vlex127/secureops-mcp)
 - **Interactive Dashboard**: Open `dashboard.html` in any browser
 - **Demo Video**: [Link to YouTube/Loom Demo]
 
