@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SecureOps AI — Audit Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@300;500;700;900&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #09090f;
+  --bg2: #0f0f1a;
+  --card: #14141f;
+  --card-border: #1e1e30;
+  --cyan: #00f0ff;
+  --cyan-dim: rgba(0, 240, 255, 0.15);
+  --critical: #ff1a4a;
+  --critical-bg: rgba(255, 26, 74, 0.12);
+  --high: #ff7700;
+  --high-bg: rgba(255, 119, 0, 0.12);
+  --medium: #facc15;
+  --medium-bg: rgba(250, 204, 21, 0.12);
+  --low: #22c55e;
+  --low-bg: rgba(34, 197, 94, 0.12);
+  --info: #0ea5e9;
+  --info-bg: rgba(14, 165, 233, 0.12);
+  --text: #d0d8e8;
+  --text-muted: #6b7280;
+  --text-dim: #3a3f55;
+}
+
+html { font-size: 15px; }
+body {
+  font-family: 'Outfit', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  line-height: 1.6;
+}
+
+.scanlines {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,240,255,0.015) 2px, rgba(0,240,255,0.015) 4px);
+}
+
+/* Header */
+.header {
+  background: var(--bg2);
+  border-bottom: 1px solid var(--card-border);
+  padding: 1rem 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+.header-left { display: flex; align-items: center; gap: 1rem; }
+.logo {
+  width: 40px; height: 40px;
+  border: 2px solid var(--cyan);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.1rem; font-weight: 900; color: var(--cyan);
+  box-shadow: 0 0 20px var(--cyan-dim);
+}
+.header h1 { font-size: 1.3rem; font-weight: 700; letter-spacing: -0.02em; }
+.header h1 span { color: var(--cyan); }
+.header-meta { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--text-muted); }
+.header-meta span { display: inline-block; margin-left: 1.5rem; }
+.header-meta .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 0.4rem; vertical-align: middle; }
+
+/* Container */
+.container { max-width: 1400px; margin: 0 auto; padding: 2rem; }
+
+/* Stats Row */
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+.stat-card {
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  padding: 1.2rem 1.5rem;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s, border-color 0.2s;
+}
+.stat-card:hover { transform: translateY(-2px); }
+.stat-card::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 2px;
+}
+.stat-card.critical { border-color: rgba(255,26,74,0.3); } .stat-card.critical::before { background: var(--critical); }
+.stat-card.high { border-color: rgba(255,119,0,0.3); } .stat-card.high::before { background: var(--high); }
+.stat-card.medium { border-color: rgba(250,204,21,0.3); } .stat-card.medium::before { background: var(--medium); }
+.stat-card.low { border-color: rgba(34,197,94,0.3); } .stat-card.low::before { background: var(--low); }
+.stat-card.info { border-color: rgba(14,165,233,0.3); } .stat-card.info::before { background: var(--info); }
+.stat-card.files { border-color: rgba(0,240,255,0.3); } .stat-card.files::before { background: var(--cyan); }
+
+.stat-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 0.3rem; }
+.stat-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 2.2rem; font-weight: 700;
+  line-height: 1.1;
+}
+.stat-card.critical .stat-value { color: var(--critical); }
+.stat-card.high .stat-value { color: var(--high); }
+.stat-card.medium .stat-value { color: var(--medium); }
+.stat-card.low .stat-value { color: var(--low); }
+.stat-card.info .stat-value { color: var(--info); }
+.stat-card.files .stat-value { color: var(--cyan); }
+
+/* Main Grid */
+.main-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem; }
+@media (max-width: 900px) { .main-grid { grid-template-columns: 1fr; } }
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  padding: 1.5rem;
+}
+.card h2 { font-size: 0.9rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 1.2rem; }
+
+/* Donut */
+.donut-wrap { display: flex; align-items: center; gap: 2rem; }
+.donut { position: relative; width: 200px; height: 200px; flex-shrink: 0; }
+.donut svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.donut-center {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  font-family: 'JetBrains Mono', monospace;
+}
+.donut-center .total { font-size: 2.5rem; font-weight: 700; color: var(--text); }
+.donut-center .label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
+
+.donut-legend { flex: 1; display: flex; flex-direction: column; gap: 0.5rem; }
+.legend-item { display: flex; align-items: center; gap: 0.6rem; font-size: 0.85rem; }
+.legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.legend-count { font-family: 'JetBrains Mono', monospace; font-weight: 700; margin-left: auto; }
+
+/* Risk Score */
+.score-ring { position: relative; width: 180px; height: 180px; margin: 0 auto; }
+.score-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.score-value {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+.score-value .num { font-family: 'JetBrains Mono', monospace; font-size: 2.8rem; font-weight: 700; }
+.score-value .lbl { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
+
+.score-details { margin-top: 1rem; }
+.score-bar-wrap { margin-bottom: 0.6rem; }
+.score-bar-label { display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 0.2rem; }
+.score-bar-label span:first-child { color: var(--text-muted); }
+.score-bar-track { height: 6px; background: var(--bg2); border-radius: 3px; overflow: hidden; }
+.score-bar-fill { height: 100%; border-radius: 3px; transition: width 1s ease; }
+
+/* File Breakdown */
+.file-list { display: grid; gap: 0.8rem; }
+.file-item {
+  background: var(--bg2);
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+.file-item:hover { border-color: rgba(0,240,255,0.2); }
+.file-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.8rem 1rem;
+  cursor: pointer;
+  user-select: none;
+}
+.file-header .name { font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; font-weight: 500; }
+.file-header .ext {
+  font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em;
+  padding: 0.15rem 0.5rem; border-radius: 4px; background: var(--card); color: var(--text-muted);
+  margin-left: 0.6rem;
+}
+.file-header .badge-group { display: flex; gap: 0.4rem; align-items: center; }
+.file-header .badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem; font-weight: 700;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+}
+.badge-crit { background: var(--critical-bg); color: var(--critical); }
+.badge-high { background: var(--high-bg); color: var(--high); }
+.badge-med { background: var(--medium-bg); color: var(--medium); }
+.badge-low { background: var(--low-bg); color: var(--low); }
+.badge-info { background: var(--info-bg); color: var(--info); }
+
+.file-arrow { color: var(--text-dim); transition: transform 0.3s; font-size: 0.7rem; }
+.file-item.open .file-arrow { transform: rotate(90deg); }
+
+.file-body { display: none; padding: 0 1rem 1rem; }
+.file-item.open .file-body { display: block; }
+
+.file-finding {
+  padding: 0.7rem;
+  margin-bottom: 0.5rem;
+  border-radius: 6px;
+  background: var(--card);
+  border-left: 3px solid;
+}
+.file-finding.lvl-critical { border-color: var(--critical); }
+.file-finding.lvl-high { border-color: var(--high); }
+.file-finding.lvl-medium { border-color: var(--medium); }
+.file-finding.lvl-low { border-color: var(--low); }
+
+.finding-rule { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.2rem; }
+.finding-line { font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.3rem; }
+.finding-snippet {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  background: rgba(0,0,0,0.3);
+  padding: 0.4rem 0.6rem;
+  border-radius: 4px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: var(--text);
+  line-height: 1.4;
+  max-height: 4.2em;
+  overflow: hidden;
+  cursor: pointer;
+  transition: max-height 0.3s;
+}
+.finding-snippet.expanded { max-height: none; }
+.finding-cwe { font-size: 0.7rem; color: var(--cyan); margin-top: 0.3rem; }
+
+/* Full Findings Table */
+.findings-table { margin-top: 2rem; }
+.findings-table h2 { font-size: 0.9rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 1rem; }
+
+.findings-table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+thead th {
+  text-align: left;
+  padding: 0.7rem 1rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.7rem;
+  border-bottom: 1px solid var(--card-border);
+}
+tbody td {
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid rgba(30,30,48,0.5);
+  vertical-align: top;
+}
+.severity-tag {
+  display: inline-block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem; font-weight: 700;
+  padding: 0.15rem 0.4rem;
+  border-radius: 3px;
+  text-transform: uppercase;
+}
+.pill-crit { background: var(--critical-bg); color: var(--critical); }
+.pill-high { background: var(--high-bg); color: var(--high); }
+.pill-med { background: var(--medium-bg); color: var(--medium); }
+.pill-low { background: var(--low-bg); color: var(--low); }
+.pill-info { background: var(--info-bg); color: var(--info); }
+
+.file-path { font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; }
+.line-num { color: var(--text-dim); font-family: 'JetBrains Mono', monospace; }
+.rule-cell { font-weight: 500; }
+.cwe-cell { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; color: var(--cyan); }
+
+tbody tr:hover { background: rgba(0,240,255,0.03); }
+
+/* Actions */
+.actions { display: flex; gap: 0.8rem; margin-top: 2rem; flex-wrap: wrap; }
+.btn {
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.82rem; font-weight: 500;
+  padding: 0.6rem 1.3rem;
+  border-radius: 8px;
+  border: 1px solid var(--card-border);
+  background: var(--card);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  text-decoration: none;
+}
+.btn:hover { border-color: var(--cyan); color: var(--cyan); box-shadow: 0 0 20px var(--cyan-dim); }
+.btn-primary { background: var(--cyan-dim); border-color: var(--cyan); color: var(--cyan); }
+.btn-primary:hover { background: rgba(0,240,255,0.25); box-shadow: 0 0 30px rgba(0,240,255,0.2); }
+
+/* Footer */
+.footer { text-align: center; padding: 3rem 2rem; color: var(--text-dim); font-size: 0.75rem; font-family: 'JetBrains Mono', monospace; }
+.footer a { color: var(--cyan); text-decoration: none; }
+
+/* Animations */
+@keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes glow { 0%, 100% { box-shadow: 0 0 5px var(--cyan-dim); } 50% { box-shadow: 0 0 20px rgba(0,240,255,0.2); } }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+.anim-1 { animation: fadeUp 0.5s ease forwards; opacity: 0; animation-delay: 0.05s; }
+.anim-2 { animation: fadeUp 0.5s ease forwards; opacity: 0; animation-delay: 0.15s; }
+.anim-3 { animation: fadeUp 0.5s ease forwards; opacity: 0; animation-delay: 0.25s; }
+.anim-4 { animation: fadeUp 0.5s ease forwards; opacity: 0; animation-delay: 0.35s; }
+.anim-5 { animation: fadeUp 0.5s ease forwards; opacity: 0; animation-delay: 0.45s; }
+.anim-6 { animation: fadeUp 0.5s ease forwards; opacity: 0; animation-delay: 0.55s; }
+
+/* Responsive */
+@media (max-width: 600px) {
+  .container { padding: 1rem; }
+  .stats { grid-template-columns: repeat(2, 1fr); }
+  .donut-wrap { flex-direction: column; align-items: center; }
+  .header-meta span { display: block; margin-left: 0; margin-top: 0.3rem; }
+}
+</style>
+</head>
+<body>
+<div class="scanlines"></div>
+
+<header class="header">
+  <div class="header-left">
+    <div class="logo">SA</div>
+    <h1>Secure<span>Ops</span> AI</h1>
+  </div>
+  <div class="header-meta" id="headerMeta">
+    <span><span class="dot" style="background:var(--cyan)"></span>Scan Complete</span>
+    <span id="scanTime">--</span>
+    <span id="scanTarget">--</span>
+  </div>
+</header>
+
+<div class="container">
+  <!-- Stats -->
+  <div class="stats" id="statsRow"></div>
+
+  <!-- Main Grid -->
+  <div class="main-grid">
+    <div class="card anim-3"><h2>Severity Breakdown</h2><div class="donut-wrap" id="donutWrap"></div></div>
+    <div class="card anim-4"><h2>Risk Assessment</h2><div id="riskWrap"></div></div>
+  </div>
+
+  <!-- File Breakdown -->
+  <div class="card anim-5" style="margin-bottom:2rem"><h2>File Breakdown</h2><div class="file-list" id="fileList"></div></div>
+
+  <!-- Full Table -->
+  <div class="card findings-table anim-6"><h2>All Findings</h2><div class="findings-table-wrap"><table><thead><tr>
+    <th>Severity</th><th>File</th><th>Line</th><th>Rule</th><th>Snippet</th><th>CWE</th>
+  </tr></thead><tbody id="findingsBody"></tbody></table></div></div>
+
+  <!-- Actions -->
+  <div class="actions">
+    <button class="btn btn-primary" onclick="exportJSON()">Export JSON</button>
+    <button class="btn btn-primary" onclick="exportSARIF()">Export SARIF</button>
+    <a class="btn" href="https://github.com" target="_blank">View on GitHub</a>
+  </div>
+</div>
+
+<footer class="footer">
+  Built for <a href="#">Global Tech Innovation 2026</a> — LLM with MCP + Cybersecurity &amp; Privacy Track
+</footer>
+
+<script>
+// ===== EMBEDDED SCAN DATA =====
+const SCAN_DATA = {
+  "scanned_at": "2026-06-29T03:31:44.832386+00:00",
+  "target": "secureops-mcp/target_project",
+  "files_scanned": 7,
+  "summary": {"critical": 9, "high": 8, "medium": 1, "low": 0, "info": 1},
+  "findings": [
+    {"severity":"critical","rule_name":"Hardcoded API Key / Secret","file_path":"App.java","line_number":6,"snippet":"private static final String DB_PASSWORD = \"super_secret_db_pass_12345\";","cwe_id":"CWE-312","recommendation":"Store secrets in environment variables or a vault service."},
+    {"severity":"high","rule_name":"Sensitive File Detected: .env","file_path":".env","line_number":1,"snippet":"File '.env' may contain sensitive configuration or credentials.","cwe_id":"CWE-530","recommendation":"Verify this file is in .gitignore and not committed to version control."},
+    {"severity":"critical","rule_name":"Unquoted Secret in .env File: DATABASE_URL","file_path":".env","line_number":1,"snippet":"DATABASE_URL=postgres://admin:supersecret@10.0.0.1:5432/prod","cwe_id":"CWE-312","recommendation":"Ensure .env files are in .gitignore. Rotate exposed credentials immediately."},
+    {"severity":"critical","rule_name":"Unquoted Secret in .env File: GITHUB_TOKEN","file_path":".env","line_number":2,"snippet":"GITHUB_TOKEN=ghp_abc123def456ghi789jkl","cwe_id":"CWE-312","recommendation":"Ensure .env files are in .gitignore. Rotate exposed credentials immediately."},
+    {"severity":"high","rule_name":"Insecure Execution (eval/exec/compile)","file_path":"app.js","line_number":7,"snippet":"eval(userInput);","cwe_id":"CWE-95","recommendation":"Avoid eval/exec/compile. Use ast.literal_eval() for safe expression evaluation."},
+    {"severity":"high","rule_name":"Insecure Execution (eval/exec/compile)","file_path":"app.js","line_number":3,"snippet":"cp.exec(\"rm -rf / \" + userInput);","cwe_id":"CWE-95","recommendation":"Avoid eval/exec/compile. Use ast.literal_eval() for safe expression evaluation."},
+    {"severity":"critical","rule_name":"Command Injection Risk","file_path":"app.js","line_number":3,"snippet":"cp.exec(\"rm -rf / \" + userInput);","cwe_id":"CWE-78","recommendation":"Use subprocess.run() with a list of args instead of shell=True."},
+    {"severity":"high","rule_name":"XSS Vulnerability (Unsafe DOM API)","file_path":"app.js","line_number":5,"snippet":"document.getElementById(\"main\").innerHTML = userInput;","cwe_id":"CWE-79","recommendation":"Use textContent or safe templating instead of innerHTML/v-html."},
+    {"severity":"critical","rule_name":"Hardcoded API Key / Secret","file_path":"app.py","line_number":6,"snippet":"AWS_SECRET = \"AIZAabc123XYZsecretKeyExample\"","cwe_id":"CWE-312","recommendation":"Store secrets in environment variables or a vault service."},
+    {"severity":"high","rule_name":"Insecure Execution (eval/exec/compile)","file_path":"app.py","line_number":10,"snippet":"exec(user_input)","cwe_id":"CWE-95","recommendation":"Avoid eval/exec/compile. Use ast.literal_eval() for safe expression evaluation."},
+    {"severity":"critical","rule_name":"Command Injection Risk","file_path":"app.py","line_number":8,"snippet":"os.system(f\"ping {user_input}\")","cwe_id":"CWE-78","recommendation":"Use subprocess.run() with a list of args instead of shell=True."},
+    {"severity":"critical","rule_name":"Command Injection Risk","file_path":"app.py","line_number":12,"snippet":"subprocess.Popen([\"ls\", \"-la\"], shell=True)","cwe_id":"CWE-78","recommendation":"Use subprocess.run() with a list of args instead of shell=True."},
+    {"severity":"high","rule_name":"Insecure Deserialization","file_path":"app.py","line_number":14,"snippet":"data = pickle.loads(b\"malicious\")","cwe_id":"CWE-502","recommendation":"Use safe alternatives: json.loads() or yaml.safe_load()."},
+    {"severity":"high","rule_name":"Insecure Deserialization","file_path":"app.py","line_number":15,"snippet":"yaml.load(data)","cwe_id":"CWE-502","recommendation":"Use safe alternatives: json.loads() or yaml.safe_load()."},
+    {"severity":"critical","rule_name":"Hardcoded Secret in Variable 'AWS_SECRET'","file_path":"app.py","line_number":6,"snippet":"AWS_SECRET = \"AIZAabc123XYZsecretKeyExample\"","cwe_id":"CWE-312","recommendation":"Store secrets in environment variables or a vault service instead of hardcoding them."},
+    {"severity":"medium","rule_name":"Potential Injection Attack Surface (input())","file_path":"app.py","line_number":7,"snippet":"user_input = input(\"Enter domain: \")","cwe_id":"CWE-20","recommendation":"Validate and sanitize all user inputs before use."},
+    {"severity":"high","rule_name":"Insecure Execution (exec)","file_path":"app.py","line_number":10,"snippet":"exec(user_input)","cwe_id":"CWE-95","recommendation":"Avoid exec() — use restricted execution environments."},
+    {"severity":"critical","rule_name":"Hardcoded API Key / Secret","file_path":"main.go","line_number":21,"snippet":"var apiSecret = \"sk-live-abc123def456ghi789jklmno\"","cwe_id":"CWE-312","recommendation":"Store secrets in environment variables or a vault service."},
+    {"severity":"info","rule_name":"Dependency Manifest Found (python)","file_path":"requirements.txt","line_number":1,"snippet":"Dependency file found — consider running pip-audit.","cwe_id":"","recommendation":"Run: pip-audit -r requirements.txt"}
+  ]
+};
+
+const S = SCAN_DATA.summary;
+const COLORS = { critical:'#ff1a4a', high:'#ff7700', medium:'#facc15', low:'#22c55e', info:'#0ea5e9' };
+
+function render() {
+  document.getElementById('scanTime').textContent = `Scan: ${new Date(SCAN_DATA.scanned_at).toLocaleString()}`;
+  document.getElementById('scanTarget').textContent = `Target: ${SCAN_DATA.target}`;
+
+  // Stats
+  const stats = document.getElementById('statsRow');
+  const cards = [
+    { cls:'files', lbl:'Files Scanned', val: SCAN_DATA.files_scanned },
+    { cls:'critical', lbl:'Critical', val: S.critical },
+    { cls:'high', lbl:'High', val: S.high },
+    { cls:'medium', lbl:'Medium', val: S.medium },
+    { cls:'low', lbl:'Low', val: S.low },
+    { cls:'info', lbl:'Info', val: S.info },
+  ];
+  stats.innerHTML = cards.map((c,i) => `
+    <div class="stat-card ${c.cls} anim-${Math.min(i+1,6)}">
+      <div class="stat-label">${c.lbl}</div>
+      <div class="stat-value">${c.val}</div>
+    </div>
+  `).join('');
+
+  // Donut
+  const total = SCAN_DATA.files_scanned;
+  const sevOrder = ['critical','high','medium','low','info'];
+  let donutHTML = '<div class="donut"><svg viewBox="0 0 200 200">';
+  const r = 80, cx = 100, cy = 100, circ = 2 * Math.PI * r;
+  let offset = 0;
+  const sevTot = sevOrder.reduce((a,k) => a + (S[k]||0), 0);
+  for (const k of sevOrder) {
+    const v = S[k]||0;
+    if (v === 0) continue;
+    const pct = v / sevTot;
+    const len = pct * circ;
+    donutHTML += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${COLORS[k]}" stroke-width="18" stroke-dasharray="${len} ${circ - len}" stroke-dashoffset="${-offset}" stroke-linecap="butt" opacity="0.85"/>`;
+    offset += len;
+  }
+  donutHTML += '</svg><div class="donut-center"><div class="total">' + total + '</div><div class="label">Total Files</div></div></div>';
+  donutHTML += '<div class="donut-legend">';
+  for (const k of sevOrder) {
+    const v = S[k]||0;
+    donutHTML += `<div class="legend-item"><span class="legend-dot" style="background:${COLORS[k]}"></span>${k}<span class="legend-count">${v}</span></div>`;
+  }
+  donutHTML += '</div>';
+  document.getElementById('donutWrap').innerHTML = donutHTML;
+
+  // Risk Score
+  const score = computeRiskScore();
+  const scoreAngle = (score / 100) * 180;
+  const scoreR = 75, scoreCirc = 2 * Math.PI * scoreR;
+  const scoreLen = (score / 100) * scoreCirc;
+  const scoreColor = score >= 70 ? COLORS.critical : score >= 40 ? COLORS.high : score >= 20 ? COLORS.medium : COLORS.low;
+  document.getElementById('riskWrap').innerHTML = `
+    <div class="score-ring">
+      <svg viewBox="0 0 200 200">
+        <circle cx="100" cy="100" r="${scoreR}" fill="none" stroke="var(--bg2)" stroke-width="16"/>
+        <circle cx="100" cy="100" r="${scoreR}" fill="none" stroke="${scoreColor}" stroke-width="16" stroke-dasharray="${scoreLen} ${scoreCirc - scoreLen}" stroke-dashoffset="${scoreCirc * 0.25}" stroke-linecap="round" style="transition: stroke-dasharray 1.5s ease"/>
+      </svg>
+      <div class="score-value"><div class="num" style="color:${scoreColor}">${score}</div><div class="lbl">Risk Score</div></div>
+    </div>
+    <div class="score-details">
+      <div class="score-bar-wrap"><div class="score-bar-label"><span>Critical Density</span><span>${S.critical}/${total} files</span></div><div class="score-bar-track"><div class="score-bar-fill" style="width:${(S.critical/total)*100}%;background:${COLORS.critical}"></div></div></div>
+      <div class="score-bar-wrap"><div class="score-bar-label"><span>High Density</span><span>${S.high}/${total} files</span></div><div class="score-bar-track"><div class="score-bar-fill" style="width:${(S.high/total)*100}%;background:${COLORS.high}"></div></div></div>
+      <div class="score-bar-wrap"><div class="score-bar-label"><span>Medium Density</span><span>${S.medium}/${total} files</span></div><div class="score-bar-track"><div class="score-bar-fill" style="width:${(S.medium/total)*100}%;background:${COLORS.medium}"></div></div></div>
+    </div>
+  `;
+
+  // File Breakdown
+  renderFiles();
+
+  // Findings Table
+  renderTable();
+}
+
+function computeRiskScore() {
+  const w = { critical: 10, high: 5, medium: 2, low: 0.5, info: 0 };
+  let maxScore = SCAN_DATA.files_scanned * 10;
+  let actual = S.critical * w.critical + S.high * w.high + S.medium * w.medium + S.low * w.low + S.info * w.info;
+  let pct = Math.min(100, (actual / Math.max(1, maxScore)) * 100);
+  return Math.round(pct);
+}
+
+function renderFiles() {
+  const map = {};
+  for (const f of SCAN_DATA.findings) {
+    const k = f.file_path;
+    if (!map[k]) map[k] = { findings: [], name: k, ext: k.includes('.') ? k.split('.').pop() : '' };
+    map[k].findings.push(f);
+  }
+  const files = Object.values(map).sort((a,b) => {
+    const sa = a.findings.reduce((s,f) => Math.max(s, {critical:4,high:3,medium:2,low:1,info:0}[f.severity]||0), 0);
+    const sb = b.findings.reduce((s,f) => Math.max(s, {critical:4,high:3,medium:2,low:1,info:0}[f.severity]||0), 0);
+    return sb - sa;
+  });
+  const el = document.getElementById('fileList');
+  el.innerHTML = files.map((f, fi) => {
+    const counts = {critical:0,high:0,medium:0,low:0,info:0};
+    for (const ff of f.findings) { const s = ff.severity; if (counts[s] !== undefined) counts[s]++; }
+    const badge = (k) => counts[k] ? `<span class="badge badge-${k.slice(0,4)}">${counts[k]} ${k}</span>` : '';
+    return `
+    <div class="file-item" onclick="this.classList.toggle('open')">
+      <div class="file-header">
+        <div><span class="name">${f.name}</span><span class="ext">${f.ext}</span></div>
+        <div style="display:flex;align-items:center;gap:0.6rem">
+          <div class="badge-group">${badge('critical')}${badge('high')}${badge('medium')}${badge('low')}</div>
+          <span class="file-arrow">▶</span>
+        </div>
+      </div>
+      <div class="file-body">
+        ${f.findings.map(ff => `
+          <div class="file-finding lvl-${ff.severity}">
+            <div class="finding-rule">${ff.rule_name}</div>
+            <div class="finding-line">Line ${ff.line_number}${ff.cwe_id ? ' · CWE-'+ff.cwe_id.split('-')[1] : ''}</div>
+            <div class="finding-snippet" onclick="this.classList.toggle('expanded')">${escapeHtml(ff.snippet)}</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderTable() {
+  const rows = SCAN_DATA.findings.map(f => `
+    <tr>
+      <td><span class="severity-tag pill-${f.severity.slice(0,4)}">${f.severity}</span></td>
+      <td class="file-path">${f.file_path}</td>
+      <td class="line-num">${f.line_number}</td>
+      <td class="rule-cell">${f.rule_name}</td>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:0.72rem;max-width:300px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${escapeHtml(f.snippet)}">${escapeHtml(f.snippet.slice(0,60))}</td>
+      <td class="cwe-cell">${f.cwe_id || '-'}</td>
+    </tr>
+  `).join('');
+  document.getElementById('findingsBody').innerHTML = rows;
+}
+
+function escapeHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function exportJSON() {
+  const blob = new Blob([JSON.stringify(SCAN_DATA, null, 2)], { type: 'application/json' });
+  download(blob, 'secureops-audit-report.json');
+}
+
+function exportSARIF() {
+  const sarif = {
+    version: '2.1.0',
+    $schema: 'https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Documents/CommitteeSpecifications/2.1.0/sarif-v2.1.0.json',
+    runs: [{
+      tool: { driver: { name: 'SecureOps AI', semanticVersion: '1.0.0' } },
+      results: SCAN_DATA.findings.filter(f => f.severity !== 'info').map(f => ({
+        ruleId: f.rule_name.replace(/\\s+/g,'-').toLowerCase(),
+        level: { critical:'error', high:'error', medium:'warning', low:'note' }[f.severity] || 'none',
+        message: { text: `${f.rule_name} in ${f.file_path}:${f.line_number}` },
+        locations: [{ physicalLocation: { artifactLocation: { uri: f.file_path }, region: { startLine: f.line_number } } }],
+      })),
+    }],
+  };
+  const blob = new Blob([JSON.stringify(sarif, null, 2)], { type: 'application/json' });
+  download(blob, 'secureops-sarif-output.sarif');
+}
+
+function download(blob, name) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+document.addEventListener('DOMContentLoaded', render);
+</script>
+</body>
+</html>

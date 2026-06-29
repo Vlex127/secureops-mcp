@@ -1,0 +1,10 @@
+services:
+  secureops:
+    build: .
+    container_name: secureops-ai
+    volumes:
+      - ./target_project:/app/target_project
+      - ./secureops_config.yaml:/app/secureops_config.yaml
+    stdin_open: true
+    tty: true
+    command: python server.py

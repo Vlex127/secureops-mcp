@@ -1,0 +1,194 @@
+rules:
+- name: Hardcoded API Key / Secret
+  patterns:
+  - (?i)(api[_-]?key|secret|password|passwd|private[_-]?key|token|credential|apikey)\s*[=:]\s*['\"][a-zA-Z0-9_\-]{16,}['\"]
+  - (?i)(aws_secret_access_key|github_token|gitlab_token|slack_token|stripe_key|twilio|sendgrid|jwt_secret)\s*[=:]\s*['\"][a-zA-Z0-9_\-]{8,}['\"]
+  severity: critical
+  extensions: []
+  cwe_id: CWE-312
+  recommendation: Store secrets in environment variables or a vault service (e.g.,
+    HashiCorp Vault, AWS Secrets Manager).
+- name: Hardcoded Private Key
+  patterns:
+  - '-----BEGIN (RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY-----'
+  severity: critical
+  extensions: []
+  cwe_id: CWE-312
+  recommendation: Remove private keys from source code. Use SSH agent or a secrets
+    manager.
+- name: Insecure Execution (eval/exec/compile)
+  patterns:
+  - \beval\s*\(
+  - \bexec\s*\(
+  - \bcompile\s*\(.*['\"]
+  severity: high
+  extensions:
+  - .py
+  - .js
+  cwe_id: CWE-95
+  recommendation: Avoid eval/exec/compile. Use ast.literal_eval() for safe expression
+    evaluation.
+- name: Command Injection Risk
+  patterns:
+  - \bos\.system\s*\(
+  - \bsubprocess\.[a-zA-Z]+\(.*shell\s*=\s*True
+  - \bexec\s*\(.*['\"].*\+
+  - \bchild_process\.exec\s*\(
+  severity: critical
+  extensions:
+  - .py
+  - .js
+  - .ts
+  - .go
+  cwe_id: CWE-78
+  recommendation: Use subprocess.run() with a list of args instead of shell=True.
+- name: SQL Injection Risk
+  patterns:
+  - (execute|cursor\.execute|executemany)\s*\(\s*f['\"]
+  - execute\s*\(\s*['\"]\s*SELECT.*\+
+  - \$query\s*\.=
+  - rawsql|raw_query|Db\.Raw
+  severity: high
+  extensions:
+  - .py
+  - .js
+  - .ts
+  - .go
+  - .java
+  - .rs
+  - .kt
+  cwe_id: CWE-89
+  recommendation: Use parameterized queries / ORM instead of string concatenation.
+- name: Insecure Deserialization
+  patterns:
+  - \bpickle\.loads?\s*\(
+  - \byaml\.load\s*\(\s*(?!.*Loader=[A-Za-z]*Safe)
+  - \bmarshal\.loads?\s*\(
+  - JSON\.parse\(.*user|unsafeUnwrap
+  severity: high
+  extensions:
+  - .py
+  - .js
+  - .ts
+  cwe_id: CWE-502
+  recommendation: 'Use safe alternatives: json.loads() or yaml.safe_load().'
+- name: Debug / Verbose Mode
+  patterns:
+  - debug\s*=\s*True
+  - VERBOSE\s*=\s*True
+  - app\.run\(.*debug\s*=\s*True
+  severity: medium
+  extensions:
+  - .py
+  cwe_id: CWE-489
+  recommendation: Disable debug mode in production deployments.
+- name: Hardcoded Internal / Localhost Address
+  patterns:
+  - (?i)(host|server|url|endpoint|base_url)\s*[=:]\s*['\"](10\.|172\.(1[6-9]|2[0-9]|3[01])\.|192\.168\.|127\.0\.0\.1)
+  severity: medium
+  extensions: []
+  cwe_id: CWE-200
+  recommendation: Use environment variables for environment-specific addresses.
+- name: S3 / Cloud Permission Exposure
+  patterns:
+  - (?i)s3.*(public|allusers|authenticated-users)
+  - (?i)acl.*public-read|acl.*public-write
+  - Resource\s*:\s*['\"]\*['\"]
+  severity: high
+  extensions: []
+  cwe_id: CWE-732
+  recommendation: Apply least-privilege principle. Avoid public access on S3 buckets.
+- name: XSS Vulnerability (Unsafe DOM API)
+  patterns:
+  - innerHTML\s*=
+  - outerHTML\s*=
+  - dangerouslySetInnerHTML
+  - v-html\s*=
+  severity: high
+  extensions:
+  - .js
+  - .ts
+  - .jsx
+  - .tsx
+  - .vue
+  - .html
+  cwe_id: CWE-79
+  recommendation: Use textContent or safe templating instead of innerHTML/v-html.
+- name: Hardcoded JWT Secret
+  patterns:
+  - (?i)jwt.*secret\s*[=:]\s*['\"][a-zA-Z0-9_\-]{8,}['\"]
+  severity: critical
+  extensions: []
+  cwe_id: CWE-312
+  recommendation: Use environment variables for JWT secrets. Rotate regularly.
+- name: Open Redirect
+  patterns:
+  - redirect\s*\(.*request\.
+  - redirect.*user_input|redirect.*params\[
+  severity: medium
+  extensions:
+  - .py
+  - .js
+  - .ts
+  cwe_id: CWE-601
+  recommendation: Validate redirect URLs against an allowlist of trusted domains.
+- name: Path Traversal
+  patterns:
+  - open\(.*\+.*\.\.\/
+  - sendfile\(.*\.\.\/
+  severity: high
+  extensions:
+  - .py
+  - .js
+  - .ts
+  - .go
+  - .rs
+  - .java
+  cwe_id: CWE-22
+  recommendation: Normalize and validate file paths with os.path.abspath and common
+    prefix check.
+- name: Sensitive File Exposure
+  patterns:
+  - \.env\b
+  - credentials\b
+  - secrets\b
+  - password\.txt
+  - id_rsa
+  severity: high
+  extensions: []
+  cwe_id: CWE-530
+  recommendation: Ensure sensitive files are in .gitignore and not deployed.
+dependencies:
+  python:
+    enabled: true
+    manifest_files:
+    - requirements.txt
+    - Pipfile.lock
+    - pyproject.toml
+  npm:
+    enabled: true
+    manifest_files:
+    - package-lock.json
+    - yarn.lock
+    - pnpm-lock.yaml
+  go:
+    enabled: false
+    manifest_files:
+    - go.sum
+ignore:
+  patterns:
+  - '*.test.*'
+  - '*.spec.*'
+  - tests/
+  - test/
+  - migrations/
+  - docs/
+  - '*.md'
+  - __pycache__/
+  - node_modules/
+  - .git/
+  - venv/
+  - .venv/
+scan:
+  max_workers: 8
+  max_file_size_kb: 5120
